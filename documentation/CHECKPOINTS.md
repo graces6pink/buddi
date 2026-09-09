@@ -102,6 +102,18 @@ python llib/methods/hhc_diffusion/main.py \
 另外注意它取的是**最新**而非**最优**——本 Release 每个 run 只有一个 checkpoint，
 不存在歧义；但如果你把多个 checkpoint 放进同一目录，续训接的是时间最新的那个。
 
+## 另一个 Release：复现结果用的权重
+
+本页这四个是**按验证损失挑的最优 checkpoint**，适合直接使用或续训。但
+[results/](../results/) 里那些实验跑的时候用的不是它们——那批权重单独发布在
+[v0.2-experiment-ckpts](https://github.com/graces6pink/buddi/releases/tag/v0.2-experiment-ckpts)。
+要复现 `results/` 里的数字，请用 v0.2；对应关系见
+[results/README.md](../results/README.md)。
+
+顺带一提，`results/` 的数据显示**验证损失并不能可靠地排序 checkpoint 的下游表现**：
+损失最低的那个（camfix ep3509，26.58）PA-MPJPE 反而最差。所以本页的"最优"仅指
+验证损失最低，不等于下游效果最好。
+
 ## 没有发布的部分
 
 本机训练目录共 24 GB、657 个 checkpoint，这里只挑了 4 个最优的。中间 checkpoint、

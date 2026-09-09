@@ -60,13 +60,45 @@
 里发布的不是同一批。** Release 发布的是各 run 验证损失最低的那个；而这些实验跑的
 时候用的是当时手头的 checkpoint。对应关系见上表"所用 checkpoint"列。
 
+两个 Release 的分工：
+
+- **[v0.1-interx-ckpt](https://github.com/graces6pink/buddi/releases/tag/v0.1-interx-ckpt)**
+  —— 各 run 验证损失最低的 checkpoint。想直接拿来用或续训，用这个。
+- **[v0.2-experiment-ckpts](https://github.com/graces6pink/buddi/releases/tag/v0.2-experiment-ckpts)**
+  —— 上表这些结果**实际用的** checkpoint。想复现上面的数字，用这个。
+
 具体差异：
 
-| run | Release 发布的 | 实验实际用的 |
+| run | v0.1 发布的 | 实验实际用的（在 v0.2） |
 |---|---|---|
-| `interx6_chi3d_cond_bev` | ep686 (31.87) | ep323 (32.32)、ep725 (31.95) |
-| `interx_cond_bev_camfix` | ep3609 (26.16) | ep3509 (26.58) |
-| `interx_cond_bev` | 未发布（已丢失） | ep1299 (33.78)、ep1499 (34.66) |
+| `interx6_chi3d_cond_bev` | ep686 (31.87) | ep146 (34.02)、ep323 (32.32)、ep725 (31.95) |
+| `interx_cond_bev_camfix` | ep3609 (26.16) | ep2249 (27.02)、ep3509 (26.58) |
+| `interx_cond_bev` | 未发布 | ep1299 (33.78)、ep1499 (34.66) —— **已从磁盘丢失，无法发布** |
 
-另有部分实验用的是官方预训练权重 `essentials/buddi/buddi_cond_bev.pt`，
-需按 [DATA.md](../documentation/DATA.md) 自行获取，因许可证限制无法转发。
+下载复现用的权重：
+
+```bash
+cd $BUDDI_ROOT
+BASE=https://github.com/graces6pink/buddi/releases/download/v0.2-experiment-ckpts
+for a in interx6_chi3d_cond_bev interx_cond_bev_camfix; do
+    curl -L -O "$BASE/$a-experiment-ckpts.tar.gz"
+    tar xzf "$a-experiment-ckpts.tar.gz" -C demo/diffusion/training/
+done
+curl -L -O "$BASE/SHA256SUMS" && sha256sum -c SHA256SUMS
+```
+
+上表中每个用到自训练权重的实验，其 checkpoint 现在都能从 v0.2 获取。
+其余用的是官方预训练权重 `essentials/buddi/buddi_cond_bev.pt`，需按
+[DATA.md](../documentation/DATA.md) 自行获取，因许可证限制无法转发。
+
+## 两个需要留意的坑
+
+**`flickr_contact_eval/baseline-nodiff` 这个名字有误导性。** 它的扩散先验损失权重
+（`diffusion_prior_pose=[100,100]`、`diffusion_prior_transl=[10000,10000]` 等）与
+`buddi-official` **逐项完全相同**，并没有关掉扩散先验。两者唯一的差别是 checkpoint
+文件名不同（`buddi_cond_bev_checkpoint.pt` vs `buddi_cond_bev.pt`），而前者已不在
+本机、无从核对。所以 report 里 `baseline-nodiff` 那一行**不应被当作"无扩散先验"的
+对照组**来解读。
+
+**`interx_cond_bev` 这个 run 的权重已彻底丢失**（本机只剩 summaries 和 config），
+因此 `demo/optimization/buddi_cond_bev_mine_live` 的结果永久不可复现。
