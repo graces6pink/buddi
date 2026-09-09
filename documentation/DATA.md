@@ -1,5 +1,28 @@
 # Datasets
 
+> **This repository contains no datasets and no model weights.**
+>
+> Everything under `datasets/`, `essentials/` and `.romp/` is excluded from version
+> control (see `.gitignore`). That is partly a size constraint — the full local tree
+> is ~227 GB and individual body-model files exceed GitHub's 100 MB per-file limit —
+> but mainly a licensing one: CHI3D, FlickrCI3D, Hi4D and Inter-X are all released
+> under agreements that require **individual registration and prohibit
+> redistribution**, and the SMPL/SMPL-X body models carry the same restriction.
+>
+> You must obtain each dataset and body model yourself from its official source,
+> under your own licence. This document tells you where to get them and what
+> directory layout the code expects. Expect to need roughly:
+>
+> | What | Where it goes | Size |
+> |---|---|---|
+> | CHI3D, FlickrCI3D, Hi4D, Inter-X | `datasets/original/` | ~170 GB (all four) |
+> | Preprocessed `.pkl` / split files | `datasets/processed/` | ~7 GB |
+> | SMPL-X / SMPL / SMIL body models, ViTPose weights | `essentials/` | ~5.3 GB |
+> | BEV / ROMP checkpoints | `~/.romp/` | ~270 MB |
+>
+> Run `bash fetch_data.sh` and `bash fetch_bodymodels.sh` (see the README) to pull
+> the parts that are script-fetchable; the raw datasets are manual downloads.
+
 ## Overview
 We use three datasets for this project, CHI3D and FlickrCI3D Signatures, which you can download 
 from [this website](https://ci3d.imar.ro/download), and Hi4D which you can download [here](https://yifeiyin04.github.io/Hi4D/#dataset). 
@@ -196,3 +219,124 @@ ln -s $PROCESSED_DATASETS_FOLDER $BUDDI_ROOT/datasets/processed
     │   │   │   ├── subject
     │   │   │   │   ├── images
     ```
+
+------------
+## Inter-X
+------------
+
+Inter-X support is an addition in this fork; it is not part of upstream BUDDI.
+It is a two-person **motion-capture** dataset — SMPL-X ground truth, no images —
+which makes it usable for training the unconditional BUDDI variant directly, and
+for the BEV-conditioned variant after synthetic views are rendered (stage 2 below).
+
+### Original data (two-person SMPL-X motion sequences)
+
+Request access and download from the [Inter-X project page](https://liangxuy.github.io/inter-x/).
+Only the `motions` split is needed. Extract to `$ORIG_DATASETS_FOLDER`:
+
+```bash
+├── $ORIG_DATASETS_FOLDER
+│   ├── InterX
+│   │   ├── motions
+│   │   │   ├── G001T000A000R000
+│   │   │   │   ├── P1.npz          # person 1: pose_body, pose_lhand, pose_rhand,
+│   │   │   │   ├── P2.npz          #   betas, root_orient, trans, gender
+│   │   │   ├── G001T000A000R001
+│   │   │   ├── ...                 # 8026 takes total, ~7 GB
+```
+
+Each take is a single continuous recording at 120 fps that may mix non-interacting
+and interacting stretches, so the frames are not usable as-is — preprocessing has to
+find the interacting sub-segments first.
+
+### Preprocessing
+
+Two stages. Stage 1 is required; stage 2 is only needed for BEV-conditioned training.
+
+**Stage 1 — segment detection and subsampling** (`process_interx.py`)
+
+Detects interacting sub-segments by root-translation proximity between the two
+people, subsamples frames within them, and writes `processed.pkl` plus
+`train_val_split.npz`:
+
+```bash
+python llib/data/preprocess/utils/process_interx.py \
+  --original-data-folder datasets/original/InterX \
+  --processed-data-folder datasets/processed/InterX \
+  --stride 20 --dist-thresh 0.6
+```
+
+- `--dist-thresh 0.6` (metres) keeps close-contact actions (hug, support) and drops
+  distant ones (wave, point): **4735 / 8026 takes, 95448 samples**. Loosening it to
+  `1.2` keeps 7929 takes / 249300 samples.
+- `--stride` is the frame stride inside a detected segment. At 120 fps, `20` gives
+  6 fps (what the released `processed.pkl` used) and `40` gives 3 fps. If you plan to
+  run stage 2, prefer the larger stride — six camera views per frame is a better use
+  of the sample budget than near-duplicate consecutive frames.
+- Add `--limit 50` for a quick dry run before committing to a full pass.
+
+**Stage 2 — synthetic multi-view BEV** (`process_interx_bev.py`)
+
+Inter-X has no images, so BEV estimates have to be manufactured. This stage renders
+the two-person mesh from six cameras orbiting the pair (one every 60°), runs each
+view through BEV, matches the (order-unstable) detections back to the known person
+0/1 by screen-space position, and converts BEV's SMPL output to SMPL-X — turning each
+mocap frame into up to six training samples, the way CHI3D's four camera rigs do:
+
+```bash
+python llib/data/preprocess/utils/process_interx_bev.py \
+  --processed-data-folder datasets/processed/InterX \
+  --in-fn processed.pkl --out-fn processed_mv.pkl \
+  --save-every 500 --vis-dir demo/interx_bev_vis
+```
+
+This is the expensive step. BEV is loaded once and kept resident — do **not**
+substitute the `bev` CLI, which reloads the model on every call and would take
+roughly 80 hours at this scale. `--save-every` checkpoints to disk so a crash
+mid-run does not lose the whole pass.
+
+Both outputs are kept side by side, so switching between them is a config change
+rather than a re-run:
+
+```bash
+├── datasets/processed/InterX
+│   ├── processed.pkl         # stage 1: single-view, bev_* zero-filled
+│   ├── processed_mv.pkl      # stage 2: six-view, real bev_smplx_* + pgt_smplx_*_cam
+│   ├── train_val_split.npz
+│   ├── diagnostics/          # optional, see below
+```
+
+### Relevant config options
+
+Set under `datasets.interx` (defined in `llib/defaults/datasets/datasets.py`):
+
+| Option | Default | Meaning |
+|---|---|---|
+| `processed_fn` | `processed.pkl` | Switch to `processed_mv.pkl` to train on the six-view expansion |
+| `allow_missing_bev` | `True` | Keep samples where BEV detection failed. Harmless unconditionally (`bev_*` is never read); set to **`False`** for BEV-conditioned training so all-zero placeholders are not fed in as fake guidance |
+| `filter_penetration` | `False` | Drop frames flagged for body-mesh interpenetration. Requires `diagnostics/penetration_exclude_list.pkl` to exist first |
+| `load_unit_glob_and_transl` | `False` | Train on camera-frame ground truth (`pgt_smplx_*_cam`, the frame `bev_smplx_*` lives in). `True` falls back to the raw mocap world frame — only meaningful unconditionally, since there the BEV conditioning is decorrelated from the target. Same flag name and meaning as the CHI3D / Hi4D datasets |
+
+### Optional QA tooling
+
+Mocap ground truth is not automatically clean at contact boundaries, so this fork
+adds a few inspection utilities:
+
+```bash
+# flag / exclude frames where the two meshes interpenetrate.
+# --exclude-threshold writes diagnostics/penetration_exclude_list.pkl, which is
+# what datasets.interx.filter_penetration=True then reads.
+python llib/data/preprocess/utils/check_interx_penetration.py \
+  --in-fn processed.pkl --exclude-threshold 0.02 --limit-takes -1
+python llib/data/preprocess/utils/depenetrate_interx.py
+
+# render a single frame from several angles to eyeball it
+python llib/data/preprocess/utils/inspect_interx_frame.py --imgname G001T000A000R000_0_289
+python llib/data/preprocess/utils/inspect_interx_frame.py --random --pick-seed 3
+
+# aggregate statistics; --dist-threshs / --strides sweep stage-1 settings
+# so you can see the sample-count trade-off before committing to a full pass
+python llib/data/preprocess/utils/diagnose_interx.py --dist-threshs 0.6 0.9 1.2
+```
+
+`inspect_interx_frame.py` needs `PYOPENGL_PLATFORM=egl` for headless rendering.

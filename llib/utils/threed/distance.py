@@ -16,8 +16,12 @@ def pcl_pcl_pairwise_distance(
     bs, num_points_x, points_dim = x.size()
     _, num_points_y, _ = y.size()
 
+    # the index tensors below are used to gather from xx/yy, so they must sit on
+    # the same device as the data. use_cuda defaults to True, which breaks callers
+    # that hand in CPU tensors (chi3d_eval.py:215 passes .cpu()); honour the actual
+    # device of x so CUDA callers are unaffected.
     dtype = torch.cuda.LongTensor if \
-        use_cuda else torch.LongTensor
+        (use_cuda and x.is_cuda) else torch.LongTensor
 
     xx = torch.bmm(x, x.transpose(2, 1))
     yy = torch.bmm(y, y.transpose(2, 1))

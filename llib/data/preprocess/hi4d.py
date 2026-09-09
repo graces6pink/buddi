@@ -83,8 +83,11 @@ class HI4D():
         for key in x.keys():
             try:
                 concatenated_dict[key] = np.stack((x[key], y[key]), axis=0)
-            except:
-                import ipdb; ipdb.set_trace()
+            except Exception as e:
+                raise ValueError(
+                    f'concatenate_dicts failed on key {key!r}: the two humans have '
+                    f'incompatible values ({np.shape(x[key])} vs {np.shape(y[key])})'
+                ) from e
         return concatenated_dict
 
     def process_bev(self, data, image_size):

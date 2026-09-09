@@ -46,9 +46,15 @@ class Evaluation:
     per_person_metrics: List[str] = field(default_factory=lambda: ['v2v','mpjpe', 'scale_mpjpe', 'pa_mpjpe'])
     generative_metrics: List[str] = field(default_factory=lambda: []) #['gen_diversity', 'gen_fid', 'gen_contact_and_isect', 'gen_tsne'])
 
-    # the number of samples to generate for the generative metrics 
+    # the number of samples to generate for the generative metrics
     # for FID and diversity this number will be split between two halves
     num_samples: int = 200
+
+    # how many validation batches to accumulate metrics over. -1 = the whole
+    # validation set (default). Set a positive number to cap validation cost;
+    # the diffusion sampling loops / tensorboard renders always run on the
+    # first batch only, so the per-extra-batch cost is one denoising pass.
+    max_val_batches: int = -1
 
     # metrics
     v2v: PointError = PointError(alignment='root')

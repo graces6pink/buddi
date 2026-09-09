@@ -1,6 +1,7 @@
 import torch.nn as nn
 import numpy as np
 import torch
+from loguru import logger as guru
 from llib.losses.l2 import L2Loss
 from llib.losses.build import build_loss
 from llib.losses.contact import ContactMapLoss
@@ -261,9 +262,14 @@ class LossModule(nn.Module):
 
         # final loss value
         total_loss = sum(ld_out.values())
-        # set breakpoint if total_loss is nan
         if torch.isnan(total_loss):
-            import ipdb; ipdb.set_trace()
+            # NOTE: this used to drop into ipdb.set_trace(), which just hangs
+            # forever on a non-interactive/unattended training run (no stdin
+            # to answer the debugger prompt) instead of failing loudly. Raise
+            # instead so the process actually exits and the failure is visible.
+            per_loss = {k: v.item() for k, v in ld_out.items()}
+            guru.error(f'total_loss is NaN. Per-loss breakdown: {per_loss}')
+            raise RuntimeError(f'total_loss is NaN. Per-loss breakdown: {per_loss}')
         ld_out['total_loss'] = total_loss
 
         return total_loss, ld_out

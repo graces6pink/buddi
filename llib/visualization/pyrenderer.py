@@ -28,10 +28,14 @@ class PyRenderer(object):
         image_width=224,
         **kwargs,
     ):
+        # NOTE: alpha=0 (fully transparent) background used to be the default
+        # here -- many image/GIF viewers render transparent regions as a
+        # checkerboard pattern, which looks like an unwanted checkered floor.
+        # Opaque white avoids that ambiguity.
         self.scene = pyrender.Scene(
-            ambient_light=[0.3, 0.3, 0.3], bg_color=[1.0, 1.0, 1.0, 0.0]
+            ambient_light=[0.3, 0.3, 0.3], bg_color=[1.0, 1.0, 1.0, 1.0]
         )
-        self.scene.bg_color = np.array([1.0, 1.0, 1.0, 0.0])
+        self.scene.bg_color = np.array([1.0, 1.0, 1.0, 1.0])
 
         self.viewport_size = (image_width, image_height)
         self.viewer = pyrender.OffscreenRenderer(*self.viewport_size)
@@ -103,7 +107,10 @@ class PyRenderer(object):
         self.update_ground_pose(ground_pose)
 
         if colors is None:
-            colors = get_colors()[: len(verts)]  # (B, 3)
+            # get_colors() returns raw 0-255 RGB values from colors.txt, but
+            # trimesh/pyrender vertex colors expect 0-1 floats -- without
+            # normalizing, every channel clips to 1.0 (white).
+            colors = get_colors()[: len(verts)] / 255.0  # (B, 3)
         meshes_t = make_batch_trimesh(verts, faces, colors)
         meshes = [pyrender.Mesh.from_trimesh(m, smooth=smooth) for m in meshes_t]
 

@@ -509,13 +509,29 @@ class TrainModule(nn.Module):
             guidance.pop('action')
             guidance.pop('action_name')
             guidance = self.split_humans(guidance)
+
+            # Samples without a real BEV estimate carry all-zero bev_* placeholders
+            # (e.g. InterX frames where BEV detected != 2 people, ~25% of them).
+            # Zeros are NOT a neutral value after cast_smpl: a zero axis-angle turns
+            # into an identity rotation in 6d, i.e. a perfectly plausible-looking but
+            # entirely fake orientation, and a zero shape token is the mean body.
+            # Feeding those as if they were real conditioning is exactly what
+            # allow_missing_bev=False was working around. Instead, null the whole
+            # guidance for those rows so they train as unconditional samples --
+            # null_value is the same value classifier-free guidance masks with, so
+            # the model already knows how to read it as "no condition".
+            if 'information_missing' in batch:
+                missing = batch['information_missing'].to(torch.bool)
+                if missing.any():
+                    for kk in guidance.keys():
+                        guidance[kk][missing] = null_value
         elif len(guidance_params) == 0:
             pass
         else:
             raise NotImplementedError
         
         if "contact" in guidance_params:
-            param = batch["contact"]
+            param = batch["contact_map"]
             param[torch.rand(self.bs) < noise_chance] = null_value
             guidance["contact"] = param
 
@@ -1152,12 +1168,21 @@ class TrainModule(nn.Module):
         return x_ts, x_starts
     
     @torch.no_grad()
-    def single_validation_step(self, batch):
-        """Implement the full validation precedure. Use val_dataset."""
+    def single_validation_step(self, batch, run_sampling=True):
+        """Implement the full validation precedure. Use val_dataset.
 
-        self.evaluator.tb_output = {
-            'images': {}
-        }
+        run_sampling is only True for the first validation batch. The two full
+        diffusion sampling loops (100 model calls each) and the tensorboard
+        renders are what makes a validation step expensive, and both only ever
+        report on one batch anyway. Every following batch skips them and just
+        contributes its reconstruction metrics and its t=50 loss (the
+        checkpoint metric) to the accumulator -- see Trainer.validate().
+        """
+
+        if run_sampling:
+            self.evaluator.tb_output = {
+                'images': {}
+            }
 
         # get guidance params - do not add noise to params at validation
         guidance_params_no_noise = self.get_guidance_params(
@@ -1182,21 +1207,22 @@ class TrainModule(nn.Module):
 
         ############ unconditional sampling ##############
         # guru.info('Start sampling unconditional')
-        uncond_ts = np.arange(1, self.diffusion.num_timesteps, 10)[::-1]
-        log_freq = 10
-        x_ts, x_starts = self.sample_from_model(
-            uncond_ts, log_freq, guidance_params_all_noise 
-        )
-        self.evaluator.forward_generative_metrics(
-            x_starts['final'], target_smpls
-        )
-        self.evaluator.tb_output['images']['unconditional'] = [
-            self.get_tb_image_data(x_starts['final'], None, None, timestep=0),
-            [''] * len(batch['action_name']),
-        ]
+        if run_sampling:
+            uncond_ts = np.arange(1, self.diffusion.num_timesteps, 10)[::-1]
+            log_freq = 10
+            x_ts, x_starts = self.sample_from_model(
+                uncond_ts, log_freq, guidance_params_all_noise
+            )
+            self.evaluator.forward_generative_metrics(
+                x_starts['final'], target_smpls
+            )
+            self.evaluator.tb_output['images']['unconditional'] = [
+                self.get_tb_image_data(x_starts['final'], None, None, timestep=0),
+                [''] * len(batch['action_name']),
+            ]
 
         ############ conditional sampling ##############
-        if len(guidance_params_no_noise) > 0:
+        if run_sampling and len(guidance_params_no_noise) > 0:
             # guru.info('Start sampling unconditional')
             cond_ts = np.arange(1, self.diffusion.num_timesteps, 10)[::-1]
             log_freq = 10
@@ -1214,7 +1240,10 @@ class TrainModule(nn.Module):
         # add noise to params
         # for t_type in ['random', 25, 50, 75]:
             # if t_type == 'random'
-        for t_type in ['single_step_random_t', '50']:
+        # '50' is the one that feeds the checkpoint metric, so it runs on every
+        # batch; the random-t pass exists purely for the tensorboard preview.
+        t_types = ['single_step_random_t', '50'] if run_sampling else ['50']
+        for t_type in t_types:
             target_params = {x: v.clone() for x, v in target_params.items()}
             guidance_params_no_noise = {x: v.clone() for x, v in guidance_params_no_noise.items()}
 
@@ -1263,6 +1292,9 @@ class TrainModule(nn.Module):
                 diffused_output_with_guidance_for_rendering = diffusion_output["diffused_with_guidance_smpls"]
             else:
                 diffused_output_with_guidance_for_rendering = None
+
+            if not run_sampling:
+                continue
 
             self.evaluator.tb_output['images'][t_type] = [
                     self.get_tb_image_data(
@@ -1322,6 +1354,7 @@ class TrainModule(nn.Module):
         method_idx=0,
         timesteps=None,
         vertex_transl_center=None,
+        roll=180.0,
     ):
 
         num_images_per_row = len(view_to_row.keys())
@@ -1345,19 +1378,26 @@ class TrainModule(nn.Module):
             else:
                 timestep = ""
 
+            cur_roll = roll[idx] if isinstance(roll, (list, tuple, torch.Tensor)) else roll
+
             vh0 = verts_h0[idx]
             vh1 = verts_h1[idx]
             verts = torch.cat([vh0, vh1], dim=0)
 
+            # NOTE: don't reassign the vertex_transl_center parameter itself here --
+            # doing so used to "stick" at sample 0's center for every later idx in
+            # this loop (the shape==[3] check became permanently true after the
+            # first iteration), silently mis-centering every other sample.
             if vertex_transl_center is None:
-                vertex_transl_center = verts.mean((0, 1))
+                center = verts.mean((0, 1))
+            elif vertex_transl_center.shape == torch.Size([3]):
+                center = vertex_transl_center
             else:
-                if not vertex_transl_center.shape == torch.Size([3]):
-                    vertex_transl_center = vertex_transl_center[idx]
-            verts_centered = verts - vertex_transl_center
+                center = vertex_transl_center[idx]
+            verts_centered = verts - center
 
             for yy in [-20, 20]:
-                self.renderer.update_camera_pose(0.0, yy, 180.0, 0.0, 0.2, 2.0)
+                self.renderer.update_camera_pose(0.0, yy, cur_roll, 0.0, 0.2, 2.0)
                 rendered_img = self.renderer.render(
                     verts_centered,
                     faces_tensor,
@@ -1373,7 +1413,7 @@ class TrainModule(nn.Module):
 
             # bird view
             for pp in [270]:
-                self.renderer.update_camera_pose(pp, 0.0, 180.0, 0.0, 0.0, 2.0)
+                self.renderer.update_camera_pose(pp, 0.0, cur_roll, 0.0, 0.0, 2.0)
                 rendered_img = self.renderer.render(
                     verts_centered,
                     faces_tensor,
@@ -1383,8 +1423,11 @@ class TrainModule(nn.Module):
                 color_image = rendered_img[0].detach().cpu().numpy() * 255
 
                 # add black text to image showing timestep
+                # cv2.putText requires a uint8 image (CV_8U), but the rendered
+                # image comes out as float -- cast before drawing, then let it
+                # get implicitly upcast back when written into final_image_out.
                 color_image = cv2.putText(
-                    color_image,
+                    color_image.astype(np.uint8),
                     timestep,
                     (10, 20),
                     cv2.FONT_HERSHEY_SIMPLEX,
@@ -1430,6 +1473,24 @@ class TrainModule(nn.Module):
                         output[f"h1_{name}"].vertices[[iidx]].detach()
                         for iidx in range(max_images)
                     ]
+                    # Target and guidance meshes both live in BEV's camera frame
+                    # (+Y down), which renders upside down under this +Y-up camera,
+                    # hence roll=180.0 -- the repo default, and what every dataset
+                    # here needs now that InterX also stores a camera-frame target
+                    # (pgt_smplx_*_cam, see process_interx_bev.py). It was
+                    # temporarily 0.0 while InterX fed the raw mocap world frame.
+                    if name == "input_with_guidance":
+                        # classifier-free guidance dropout (get_guidance_params) zeroes
+                        # orient per-sample, and so does the missing-BEV nulling -- a
+                        # zeroed sample is SMPL's plain rest pose (no BEV
+                        # coordinate-convention offset), so it needs roll=0.0 while
+                        # real (non-dropped) BEV samples need roll=180.0.
+                        h0_orient = output[f"h0_{name}"].global_orient[:max_images]
+                        h1_orient = output[f"h1_{name}"].global_orient[:max_images]
+                        is_null = (h0_orient.abs().sum(-1) < 1e-6) & (h1_orient.abs().sum(-1) < 1e-6)
+                        roll = [0.0 if is_null[i] else 180.0 for i in range(max_images)]
+                    else:
+                        roll = 180.0
                     self.render_one_method(
                         max_images,
                         verts_h0,
@@ -1440,6 +1501,7 @@ class TrainModule(nn.Module):
                         view_to_row,
                         idx,
                         timesteps,
+                        roll=roll,
                     )
 
             imgname_img[f'renderings/{output_key}'] = self.final_image_out

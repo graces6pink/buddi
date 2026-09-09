@@ -1,5 +1,5 @@
 # Local folders
-/essentials
+
 /datasets/original
 /datasets/processed/**
 essentials_orig
@@ -143,3 +143,25 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# ---- 本地大文件 / 不可再分发资源（不入库）----
+# 身体模型与预训练权重：单文件超 GitHub 100MB 上限，且 SMPL-X/SMPL 协议禁止再分发
+/essentials/
+/.romp/
+
+# 相关工作的参考仓库与论文
+/related_work/
+
+# 数据集子集与本地数据
+/demo/data/flickr_test_subset/
+
+# 本地产物
+/paper.pdf
+*.log
+*.docx
+.wget-hsts
+.vscode/
+
+# 评估脚本的运行时输出目录（utils.py 硬编码写入 result.pkl），保留目录不保留产物
+/llib/methods/hhcs_optimization/evaluation/temp/*
+!/llib/methods/hhcs_optimization/evaluation/temp/.gitkeep

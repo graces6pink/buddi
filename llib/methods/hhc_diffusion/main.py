@@ -9,7 +9,7 @@ Train a diffusion model on images.
 import argparse
 
 from llib.models.build import build_model
-from llib.optimizer.build import build_optimizer
+from llib.optimizer.build import build_optimizer, build_scheduler
 from llib.data.build import build_datasets
 from llib.logging.logger import Logger
 from llib.training.diffusion_trainer import Trainer
@@ -29,7 +29,12 @@ from train_module import TrainModule
 from eval_module import EvalModule
 
 import torch
-torch.autograd.set_detect_anomaly(True)
+# NOTE: this used to be torch.autograd.set_detect_anomaly(True), which makes
+# every backward op do an extra NaN check and keep extra graph bookkeeping --
+# a 20-100% slowdown paid on every single training step. It was debug leftover:
+# the failure it guards against (NaN loss) is already caught explicitly in
+# loss_module.py::forward, which raises RuntimeError with a per-loss breakdown.
+# Turn it back on only while actively debugging a NaN.
 
 import numpy as np
 import random
@@ -88,8 +93,9 @@ def train(cfg):
     optimizer = build_optimizer(
         cfg=cfg.model.regressor.optimizer,
         optimizer_type=cfg.model.regressor.optimizer.type,
-        params=filter(lambda p: p.requires_grad, regressor.parameters()) 
+        params=filter(lambda p: p.requires_grad, regressor.parameters())
     )
+    scheduler = build_scheduler(cfg=cfg.model.regressor.optimizer, optimizer=optimizer)
 
     # create renderer to visualize results
     renderer_camera = build_camera(
@@ -128,6 +134,7 @@ def train(cfg):
         train_cfg=cfg.training,
         train_module=hhc_s2s_transformer,
         optimizer=optimizer,
+        scheduler=scheduler,
         logger=logger,
         device=cfg.device,
         batch_size=cfg.batch_size

@@ -143,6 +143,42 @@ class HI4D:
     )
 
 @dataclass
+class InterX:
+    original_data_folder: str = 'datasets/original/InterX'
+    processed_data_folder: str = 'datasets/processed/InterX'
+    # which file under processed_data_folder holds the samples. 'processed.pkl' is
+    # the single-view stage-1 output; 'processed_mv.pkl' is the six-view expansion
+    # written by process_interx_bev.py. Both are kept, so switching between them
+    # is a config change rather than a re-run.
+    processed_fn: str = 'processed.pkl'
+    image_folder: str = 'images'  # unused (no real images), required by SingleDataset.__init__
+    overfit: bool = False
+    overfit_num_samples: int = 12
+    # True (default) = keep samples where BEV detection failed (bev_smplx_*
+    # stays all-zero, information_missing=True) -- harmless for unconditional
+    # training since bev_* is never read. Set to False for BEV-conditioned
+    # training so those all-zero placeholders don't get fed in as fake
+    # guidance signal.
+    allow_missing_bev: bool = True
+    # False (default) = keep all frames regardless of body-mesh interpenetration.
+    # Set to True to drop frames flagged by check_interx_penetration.py
+    # (requires datasets/processed/InterX/diagnostics/penetration_exclude_list.pkl
+    # to already exist, generated via --exclude-threshold on that script).
+    filter_penetration: bool = False
+    # False (default) = train on the camera-frame ground truth
+    # (pgt_smplx_*_cam, written by process_interx_bev.py), which is the frame
+    # bev_smplx_* lives in. True = fall back to the raw Inter-X mocap world
+    # frame; only meaningful for the unconditional model, since in that frame
+    # the BEV conditioning is decorrelated from the target. Flag name matches
+    # the CHI3D / Hi4D datasets, which use it the same way.
+    load_unit_glob_and_transl: bool = False
+    features: DatasetFeatures = DatasetFeatures(
+        is_itw = False,
+        has_gt_smpl_pose = True,
+        has_gt_smpl_shape = True,
+    )
+
+@dataclass
 class Demo:
     original_data_folder: str  = ''
     number_of_regions: int = 75

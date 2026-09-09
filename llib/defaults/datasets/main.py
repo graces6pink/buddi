@@ -39,6 +39,7 @@ class Datasets:
     flickrci3dc: FlickrCI3D_Classification = FlickrCI3D_Classification()
     chi3d: CHI3D = CHI3D()
     hi4d: HI4D = HI4D()
+    interx: InterX = InterX()
     demo: Demo = Demo()
 
 

@@ -1,0 +1,1076 @@
+batch_size: 1
+device: cuda
+body_model:
+  type: smplx
+  smpl_family_folder: essentials/body_models
+  smpl:
+    num_vertices: 6890
+    init:
+      ext: pkl
+      batch_size: 1
+      gender: neutral
+      age: adult
+      kid_template_path: essentials/body_models/smil/smplx_kid_template.npy
+      betas:
+        dim: 10
+        create: true
+      body_pose:
+        create: true
+      global_orient:
+        create: true
+      transl:
+        create: true
+      joint_mapper:
+        use: false
+        type: smpl_to_openpose
+        smpl_to_openpose:
+          use_hands: true
+          use_face: true
+          use_face_contour: false
+          openpose_format: coco25
+  smplh:
+    num_vertices: 6890
+    init:
+      ext: pkl
+      batch_size: 1
+      gender: neutral
+      age: adult
+      kid_template_path: essentials/body_models/smil/smplx_kid_template.npy
+      betas:
+        dim: 10
+        create: true
+      body_pose:
+        create: true
+      global_orient:
+        create: true
+      transl:
+        create: true
+      joint_mapper:
+        use: false
+        type: smpl_to_openpose
+        smpl_to_openpose:
+          use_hands: true
+          use_face: true
+          use_face_contour: false
+          openpose_format: coco25
+      left_hand_pose:
+        use_pca: true
+        num_pca_comps: 6
+        flat_hand_mean: false
+        create: true
+      right_hand_pose:
+        use_pca: true
+        num_pca_comps: 6
+        flat_hand_mean: false
+        create: true
+      use_compressed: true
+  smplx:
+    num_vertices: 10475
+    init:
+      ext: npz
+      batch_size: 1
+      gender: neutral
+      age: kid
+      kid_template_path: essentials/body_models/smil/smplx_kid_template.npy
+      betas:
+        dim: 10
+        create: true
+      body_pose:
+        create: true
+      global_orient:
+        create: true
+      transl:
+        create: true
+      joint_mapper:
+        use: true
+        type: smpl_to_openpose
+        smpl_to_openpose:
+          use_hands: false
+          use_face: false
+          use_face_contour: false
+          openpose_format: coco25
+      left_hand_pose:
+        use_pca: true
+        num_pca_comps: 6
+        flat_hand_mean: false
+        create: true
+      right_hand_pose:
+        use_pca: true
+        num_pca_comps: 6
+        flat_hand_mean: false
+        create: true
+      use_compressed: true
+      hand_vertex_ids_path: ''
+      expression:
+        dim: 10
+        create: true
+      jaw_pose:
+        create: true
+      leye_pose:
+        create: true
+      reye_pose:
+        create: true
+datasets:
+  processing:
+    normalization_mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    normalization_std:
+    - 0.229
+    - 0.224
+    - 0.225
+    resolution: 224
+    use: false
+    load_image: false
+  train_names:
+  - interx
+  train_composition:
+  - 1.0
+  augmentation:
+    use: true
+    mirror: 0.5
+    noise: 0.4
+    rotation: 30.0
+    scale: 0.25
+    swap: 0.5
+  val_names:
+  - interx
+  test_names: []
+  flickrci3dsd:
+    body_model_path: essentials/body_models
+    original_data_folder: datasets/original/FlickrCI3D_Signatures
+    imar_vision_datasets_tools_folder: essentials/imar_vision_datasets_tools
+    processed_data_folder: datasets/processed/FlickrCI3D_Signatures
+    max_count_regions_in_contact: 25
+    number_of_regions: 75
+    image_folder: images
+    bev_folder: bev
+    openpose_folder: keypoints/keypoints
+    vitpose_folder: vitpose
+    vitdet_folder: vitdet
+    image_format: png
+    pseudogt_folder: pseudogt/summaries
+    overfit: false
+    overfit_num_samples: 12
+    init_pose_from_bev: false
+    features:
+      is_itw: true
+      has_dhhc_class: false
+      has_dhhc_sig: true
+      has_dsc_sig: false
+      has_dsc_class: false
+      has_gt_kpts: false
+      has_op_kpts: true
+      has_gt_joints: false
+      has_gender: false
+      has_gt_smpl_shape: false
+      has_gt_smpl_pose: false
+      has_pgt_smpl_shape: false
+      has_pgt_smpl_pose: false
+  flickrci3ds:
+    body_model_path: essentials/body_models
+    original_data_folder: datasets/original/FlickrCI3D_Signatures
+    imar_vision_datasets_tools_folder: essentials/imar_vision_datasets_tools
+    processed_data_folder: datasets/processed/FlickrCI3D_Signatures
+    max_count_regions_in_contact: 25
+    number_of_regions: 75
+    image_folder: images
+    bev_folder: bev
+    openpose_folder: openpose
+    vitpose_folder: vitpose
+    vitposeplus_folder: vitposeplus
+    vitdet_folder: vitdet
+    image_format: png
+    pseudogt_folder: hhcs_opti/run4_20231015/results
+    overfit: false
+    overfit_num_samples: 12
+    adult_only: false
+    child_only: false
+    features:
+      is_itw: true
+      has_dhhc_class: false
+      has_dhhc_sig: true
+      has_dsc_sig: false
+      has_dsc_class: false
+      has_gt_kpts: false
+      has_op_kpts: true
+      has_gt_joints: false
+      has_gender: false
+      has_gt_smpl_shape: false
+      has_gt_smpl_pose: false
+      has_pgt_smpl_shape: false
+      has_pgt_smpl_pose: false
+  flickrci3ds_adult:
+    body_model_path: essentials/body_models
+    original_data_folder: datasets/original/FlickrCI3D_Signatures
+    imar_vision_datasets_tools_folder: essentials/imar_vision_datasets_tools
+    processed_data_folder: datasets/processed/FlickrCI3D_Signatures
+    max_count_regions_in_contact: 25
+    number_of_regions: 75
+    image_folder: images
+    bev_folder: bev
+    openpose_folder: openpose
+    vitpose_folder: vitpose
+    vitposeplus_folder: vitposeplus
+    vitdet_folder: vitdet
+    image_format: png
+    pseudogt_folder: pseudogt/summaries
+    overfit: false
+    overfit_num_samples: 12
+    adult_only: true
+    child_only: false
+    features:
+      is_itw: true
+      has_dhhc_class: false
+      has_dhhc_sig: true
+      has_dsc_sig: false
+      has_dsc_class: false
+      has_gt_kpts: false
+      has_op_kpts: true
+      has_gt_joints: false
+      has_gender: false
+      has_gt_smpl_shape: false
+      has_gt_smpl_pose: false
+      has_pgt_smpl_shape: false
+      has_pgt_smpl_pose: false
+  flickrci3ds_child:
+    body_model_path: essentials/body_models
+    original_data_folder: datasets/original/FlickrCI3D_Signatures
+    imar_vision_datasets_tools_folder: essentials/imar_vision_datasets_tools
+    processed_data_folder: datasets/processed/FlickrCI3D_Signatures
+    max_count_regions_in_contact: 25
+    number_of_regions: 75
+    image_folder: images
+    bev_folder: bev
+    openpose_folder: openpose
+    vitpose_folder: vitpose
+    vitposeplus_folder: vitposeplus
+    vitdet_folder: vitdet
+    image_format: png
+    pseudogt_folder: pseudogt/summaries
+    overfit: false
+    overfit_num_samples: 12
+    adult_only: false
+    child_only: true
+    features:
+      is_itw: true
+      has_dhhc_class: false
+      has_dhhc_sig: true
+      has_dsc_sig: false
+      has_dsc_class: false
+      has_gt_kpts: false
+      has_op_kpts: true
+      has_gt_joints: false
+      has_gender: false
+      has_gt_smpl_shape: false
+      has_gt_smpl_pose: false
+      has_pgt_smpl_shape: false
+      has_pgt_smpl_pose: false
+  flickrci3dc:
+    original_data_folder: datasets/original/FlickrCI3D_Classification
+    imar_vision_datasets_tools_folder: essentials/imar_vision_datasets_tools
+    processed_data_folder: datasets/processed/FlickrCI3D_Classification
+    image_folder: images
+    image_format: png
+    bev_folder: bev
+    features:
+      is_itw: true
+      has_dhhc_class: true
+      has_dhhc_sig: false
+      has_dsc_sig: false
+      has_dsc_class: false
+      has_gt_kpts: false
+      has_op_kpts: true
+      has_gt_joints: false
+      has_gender: false
+      has_gt_smpl_shape: false
+      has_gt_smpl_pose: false
+      has_pgt_smpl_shape: false
+      has_pgt_smpl_pose: false
+    overfit: false
+    overfit_num_samples: 64
+  chi3d:
+    original_data_folder: datasets/original/CHI3D
+    processed_data_folder: datasets/processed/CHI3D
+    imar_vision_datasets_tools_folder: essentials/imar_vision_datasets_tools
+    max_count_regions_in_contact: 25
+    number_of_regions: 75
+    image_folder: images
+    bev_folder: bev
+    openpose_folder: keypoints/keypoints
+    vitpose_folder: vitpose
+    vitdet_folder: vitdet
+    image_format: png
+    pseudogt_folder: pseudogt/summaries
+    overfit: false
+    overfit_num_samples: 12
+    load_single_camera: false
+    load_from_scratch_single_camera: false
+    load_contact_frame_only: true
+    load_unit_glob_and_transl: false
+    features:
+      is_itw: false
+      has_dhhc_class: false
+      has_dhhc_sig: true
+      has_dsc_sig: false
+      has_dsc_class: false
+      has_gt_kpts: false
+      has_op_kpts: true
+      has_gt_joints: false
+      has_gender: false
+      has_gt_smpl_shape: false
+      has_gt_smpl_pose: false
+      has_pgt_smpl_shape: false
+      has_pgt_smpl_pose: false
+  hi4d:
+    original_data_folder: datasets/original/Hi4D
+    processed_data_folder: datasets/processed/Hi4D
+    image_folder: images
+    bev_folder: bev
+    openpose_folder: keypoints/keypoints
+    vitpose_folder: keypoints/vitposeplus
+    image_format: jpg
+    overfit: false
+    overfit_num_samples: 12
+    load_single_camera: false
+    load_from_scratch_single_camera: false
+    load_unit_glob_and_transl: false
+    features:
+      is_itw: false
+      has_dhhc_class: false
+      has_dhhc_sig: true
+      has_dsc_sig: false
+      has_dsc_class: false
+      has_gt_kpts: false
+      has_op_kpts: true
+      has_gt_joints: false
+      has_gender: false
+      has_gt_smpl_shape: false
+      has_gt_smpl_pose: false
+      has_pgt_smpl_shape: false
+      has_pgt_smpl_pose: false
+  interx:
+    original_data_folder: datasets/original/InterX
+    processed_data_folder: datasets/processed/InterX
+    image_folder: images
+    overfit: false
+    overfit_num_samples: 12
+    allow_missing_bev: true
+    filter_penetration: false
+    load_unit_glob_and_transl: false
+    features:
+      is_itw: false
+      has_dhhc_class: false
+      has_dhhc_sig: false
+      has_dsc_sig: false
+      has_dsc_class: false
+      has_gt_kpts: false
+      has_op_kpts: false
+      has_gt_joints: false
+      has_gender: false
+      has_gt_smpl_shape: true
+      has_gt_smpl_pose: true
+      has_pgt_smpl_shape: false
+      has_pgt_smpl_pose: false
+  demo:
+    original_data_folder: ''
+    number_of_regions: 75
+    image_folder: images
+    bev_folder: bev
+    openpose_folder: keypoints/keypoints
+    vitpose_folder: vitpose
+    image_format: png
+    image_name_select: ''
+    has_gt_contact_annotation: false
+    imar_vision_datasets_tools_folder: essentials/imar_vision_datasets_tools
+    unique_keypoint_match: true
+camera:
+  type: perspective
+  perspective:
+    afov_horizontal: 60.0
+    pitch: 0.0
+    yaw: 0.0
+    roll: 0.0
+    tx: 0.0
+    ty: 0.0
+    tz: 0.0
+    iw: 224
+    ih: 224
+model:
+  regressor:
+    type: diffusion_transformer
+    optimizer:
+      type: adam
+      adam:
+        lr: 0.0001
+        weight_decay: 0.0
+      lbfgs:
+        lr: 1.0
+      scheduler:
+        type: none
+        reduce_lr_on_plateau:
+          mode: min
+          factor: 0.5
+          patience: 2
+          min_lr: 1.0e-06
+    losses:
+      debug: false
+      keypoint2d:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: true
+        d1_aggregation: sum
+      init_pose:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      init_shape:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      init_transl:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      kl:
+        type: ''
+        weight:
+        - 0.0
+        anneal_start: 0
+        anneal_end: -1
+      pseudogt_pose:
+        type: l2
+        weight:
+        - 10.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      pseudogt_shape:
+        type: l2
+        weight:
+        - 0.1
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      pseudogt_transl:
+        type: l2
+        weight:
+        - 1.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      pseudogt_v2v:
+        type: l2
+        weight:
+        - 1000.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      pseudogt_j2j:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      hhc_contact:
+        type: hhcmap
+        weight:
+        - 0.0
+        region_aggregation_type: sum
+        r2r_dist_type: min
+        squared_dist: true
+        region_to_vertex: essentials/contact/flickrci3ds_r75_rid_to_smplx_vid.pkl
+      hhc_contact_general:
+        type: hhcgen
+        weight:
+        - 0.0
+        region_aggregation_type: sum
+        r2r_dist_type: min
+        squared_dist: true
+        body_model_utils_folder: essentials/body_model_utils
+        model_type: smplx
+      pose_prior:
+        type: gmm
+        weight:
+        - 0.0
+        prior_folder: essentials/priors
+        num_gaussians: 8
+        epsilon: 1.0e-16
+        use_merged: true
+      shape_prior:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      ground_plane:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      cmap:
+        type: cmap
+        weight:
+        - 0.0
+        r2r_dist_type: test
+      cmap_heat_smpl:
+        type: ''
+        weight:
+        - 0.0
+      cmap_heat_token:
+        type: ''
+        weight:
+        - 0.0
+      cmap_binary_smpl:
+        type: ''
+        weight:
+        - 0.0
+      cmap_binary_token:
+        type: ''
+        weight:
+        - 0.0
+      diffusion_prior_orient:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_pose:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_shape:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_scale:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_transl:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_v2v:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      vae_prior_latent:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+    experiment:
+      contact_rep: bev_contact_heat
+      rotrep: sixd
+      in_data: pgt
+      token_setup: H0PH1P
+      num_contact_tokens: 0
+      smpl_mask: []
+      relative_transl: true
+      relative_orient: false
+      guidance_params:
+      - bev
+      guidance_param_nc: 0.5
+      guidance_all_nc: 0.2
+      guidance_no_nc: 0.7
+    hmr:
+      load_pretrained: true
+      pretrained_type: resnet50
+      smpl_mean_params: essentials/spin/smpl_mean_params.npz
+    resnet:
+      depth: 50
+      pretrained: true
+    mlp:
+      in_channels: 10
+      hidden_channels:
+      - 8
+      - 6
+      - 4
+      - 2
+      bias: true
+      dropout: 0.0
+    vit:
+      image_size: 224
+      patch_size: 16
+      num_classes: 1000
+      dim: 1024
+      depth: 6
+      heads: 8
+      mlp_dim: 2048
+      dropout: 0.1
+      emb_dropout: 0.1
+      dim_head: 64
+    bev:
+      bv_with_fv_condition: true
+      add_offsetmap: true
+      add_depth_encoding: true
+      backbone_type: hrnet_32
+      hrnet_pretrain_path: hrbet_32.pth
+      params_num: 146
+      outmap_size: 128
+      cam_dim: 3
+      num_center_maps: 1
+      coord_maps_size: 128
+      centermap_size: 64
+      head_block_num: 2
+      head_num_channels: 128
+      bv_center_num_block: 2
+      bv_center_momentum: 0.1
+      transformer_dropout_ratio: 0.2
+      transformer_num_channels: 512
+      max_person: 12
+      conf_thresh: 0.1
+    ae:
+      in_channels: 5625
+      num_neurons: 4000
+      hidden_channels: 1000
+      dropout: 0.1
+    transformer:
+      dim: 146
+      depth: 6
+      heads: 1
+      mlp_dim: 2048
+      dropout: 0.1
+    diffusion_transformer:
+      dim: 152
+      depth: 6
+      heads: 8
+      mlp_dim: 500
+      dropout: 0.1
+      use_positional_encoding: false
+      use_positional_embedding: false
+      use_human_embedding: true
+      use_param_embedding: true
+      max_tokens: 100
+      use_cross_attention: false
+      share_linear_layers: false
+      encode_target: false
+    hhcc:
+      pretrain_path: essentials/bev/BEV.pth
+    vae_mlp:
+      d_model: null
+      d_latent: 64
+      d_features: 256
+      n_enc_layers: 2
+      n_dec_layers: 2
+      dropout: 0.1
+      embed_features: false
+      embed_id: false
+      enc_pos: false
+    autoencoder:
+      in_channels: 5625
+      hidden_channels: 1000
+      depth: 4
+    ae_mlp:
+      d_model: null
+      d_latent: 64
+      d_features: 256
+      n_enc_layers: 2
+      n_dec_layers: 2
+      dropout: 0.1
+      embed_features: false
+      embed_id: false
+      enc_pos: false
+  optimization:
+    type: smplifydc
+    print_loss: true
+    render_iters: false
+    use_gt_contact_map: true
+    use_vae: false
+    pretrained_vae_cfg: ''
+    pretrained_vae_ckpt: ''
+    use_diffusion: false
+    pretrained_diffusion_model_cfg: ''
+    pretrained_diffusion_model_ckpt: ''
+    sds_type: fixed
+    sds_t_fixed: 20
+    sds_t_range:
+    - 25
+    - 75
+    sds_t_adaptive_i:
+    - 1.0
+    - 0.8
+    - 0.6
+    - 0.4
+    - 0.2
+    sds_t_adaptive_t:
+    - 100
+    - 80
+    - 60
+    - 40
+    - 20
+    optimizer:
+      type: adam
+      adam:
+        lr: 1.0
+        weight_decay: 0.0
+      lbfgs:
+        lr: 1.0
+      scheduler:
+        type: none
+        reduce_lr_on_plateau:
+          mode: min
+          factor: 0.5
+          patience: 2
+          min_lr: 1.0e-06
+    losses:
+      debug: false
+      keypoint2d:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: true
+        d1_aggregation: sum
+      init_pose:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      init_shape:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      init_transl:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      kl:
+        type: ''
+        weight:
+        - 0.0
+        anneal_start: 0
+        anneal_end: -1
+      pseudogt_pose:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      pseudogt_shape:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      pseudogt_transl:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      pseudogt_v2v:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      pseudogt_j2j:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      hhc_contact:
+        type: hhcmap
+        weight:
+        - 0.0
+        region_aggregation_type: sum
+        r2r_dist_type: min
+        squared_dist: true
+        region_to_vertex: essentials/contact/flickrci3ds_r75_rid_to_smplx_vid.pkl
+      hhc_contact_general:
+        type: hhcgen
+        weight:
+        - 0.0
+        region_aggregation_type: sum
+        r2r_dist_type: min
+        squared_dist: true
+        body_model_utils_folder: essentials/body_model_utils
+        model_type: smplx
+      pose_prior:
+        type: gmm
+        weight:
+        - 0.0
+        prior_folder: essentials/priors
+        num_gaussians: 8
+        epsilon: 1.0e-16
+        use_merged: true
+      shape_prior:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      ground_plane:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      cmap:
+        type: cmap
+        weight:
+        - 0.0
+        r2r_dist_type: test
+      cmap_heat_smpl:
+        type: ''
+        weight:
+        - 0.0
+      cmap_heat_token:
+        type: ''
+        weight:
+        - 0.0
+      cmap_binary_smpl:
+        type: ''
+        weight:
+        - 0.0
+      cmap_binary_token:
+        type: ''
+        weight:
+        - 0.0
+      diffusion_prior_orient:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_pose:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_shape:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_scale:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_transl:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      diffusion_prior_v2v:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+      vae_prior_latent:
+        type: l2
+        weight:
+        - 0.0
+        squared: true
+        translated: false
+        weighted: false
+        d1_aggregation: sum
+    smplifydc:
+      use_contact: true
+    hhcs:
+      use_contact: true
+      max_iters:
+      - 100
+      - 100
+      num_prev_steps: 100
+      slope_tol: -1.0e-05
+  diffusion:
+    steps: 1000
+    noise_schedule: cosine
+    rescale_timesteps: false
+    timestep_respacing: ''
+    loss_type: custom
+    model_mean_type: start_x
+    model_var_type: fixed_large
+training:
+  max_epochs: 5000
+  max_duration: .inf
+  num_workers: 8
+  pin_memory: false
+  shuffle_train: true
+  pretrained: ''
+  clip_grad_norm: 1.0
+  train: true
+  eval_val: false
+  eval_test: false
+evaluation:
+  checkpoint_metric: total_loss
+  metrics:
+  - v2v
+  - mpjpe
+  - pa_mpjpe
+  - pairwise_pa_mpjpe
+  per_person_metrics:
+  - v2v
+  - mpjpe
+  - scale_mpjpe
+  - pa_mpjpe
+  generative_metrics:
+  - gen_diversity
+  - gen_fid
+  - gen_contact_and_isect
+  - gen_tsne
+  num_samples: 512
+  max_val_batches: -1
+  v2v:
+    name: PointError
+    alignment: root
+  mpjpe:
+    name: PointError
+    alignment: root
+  scale_mpjpe:
+    name: PointError
+    alignment: scale
+  pa_mpjpe:
+    name: PointError
+    alignment: procrustes
+  pairwise_pa_mpjpe:
+    name: PointError
+    alignment: procrustes
+  cmap_dist:
+    name: ContactMapDistError
+    region_to_vertex: essentials/contact/flickrci3ds_r75_rid_to_smplx_vid.pkl
+  cmap_iou:
+    name: ContactIOU
+  gen_diversity:
+    name: GenDiversity
+  gen_fid:
+    fid_model_path: ''
+    fid_model_cfg: ''
+    name: GenFID
+  gen_contact_and_isect:
+    name: GenContactIsect
+  gen_tsne:
+    name: GentSNE
+visualization:
+  renderer:
+    type: pytorch3d
+    image_height: 224
+    image_width: 224
+    mesh_color: light_blue
+    pytorch3d:
+      blur_radius: 0.0
+      faces_per_pixel: 5
+      light_location:
+      - - 0.0
+        - 0.0
+        - -0.5
+  plotter:
+    iw: 224
+    ih: 224
+    style:
+      type: latex
+logging:
+  base_folder: demo/diffusion/training
+  run: interx_cond_bev_camfix
+  images_folder: images
+  summaries_folder: summaries
+  checkpoint_folder: checkpoints
+  validation_folder: validation
+  result_folder: results
+  summaries_freq: 100.0
+  checkpoint_freq: 100.0
+  logger_level: INFO
+  logger: tensorboard
+  project_name: HumanHumanContactGenerativeModel
+  run_id: default
+  wandb_api_key_path: .wandb/api.txt

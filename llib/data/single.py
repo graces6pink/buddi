@@ -140,11 +140,21 @@ class SingleDataset(Dataset):
         elif self.dataset_name == 'hi4d':
             from .preprocess.hi4d import HI4D
             dataset = HI4D(
-                **self.dataset_cfg, 
+                **self.dataset_cfg,
                 split=self.split,
                 body_model_type=self.body_model_type
             ).load(
-                processed_fn_ext='_diffusion.pkl'  
+                processed_fn_ext='_diffusion.pkl'
+            )
+        elif self.dataset_name == 'interx':
+            from .preprocess.interx import InterX
+            dataset = InterX(
+                **self.dataset_cfg,
+                split=self.split,
+                body_model_type=self.body_model_type
+            ).load(
+                processed_fn_ext='_diffusion.pkl',
+                allow_missing_information=self.dataset_cfg.allow_missing_bev,
             )
         else:
             raise NotImplementedError
@@ -291,7 +301,7 @@ class SingleDataset(Dataset):
         h12_bbox = self.join_bbox(h1_bbox, h2_bbox)
 
         h1_joints = np.array(h1_joints).astype(int)
-        h2_joints = np.array(h1_joints).astype(int)
+        h2_joints = np.array(h2_joints).astype(int)
 
         h1_col = (0, 255, 0)
         h2_col = (0, 0, 255)
@@ -403,18 +413,34 @@ class SingleDataset(Dataset):
             'img_height': img_height,
             'img_width': img_width,
             'sample_index': index,
+            # Needed by llib/methods/hhc_diffusion/train_module.py::get_guidance_params
+            # to null out the bev_* guidance of samples that never got a real BEV
+            # estimate (all-zero placeholders). Datasets that always have BEV
+            # simply report False.
+            #
+            # Prefer bev_missing where the dataset provides it. CHI3D's
+            # information_missing is set when ANY of openpose/vitpose/vitposeplus/bev
+            # is absent (chi3d.py:408-411) because stage-1 optimisation needs the 2D
+            # keypoints; diffusion training does not, and treating a missed keypoint
+            # as missing conditioning throws away ~6% of CHI3D for no reason.
+            # InterX sets only information_missing, and there the two are equivalent.
+            'information_missing': bool(item.get('bev_missing', item.get('information_missing', False))),
         }
 
+        # Deliberately empty. This used to emit cam_rot / cam_transl / fl / ih / iw,
+        # but ONLY for datasets whose samples carry them -- CHI3D does, InterX does
+        # not. That is fine while training on one dataset, and fatal when mixing:
+        # PartitionSampler puts both in the same batch, and torch's default_collate
+        # takes the key set from the first sample and indexes every other sample
+        # with it, so a mixed batch dies with KeyError: 'cam_rot'.
+        #
+        # Emitting the keys everywhere with invented defaults would also work, but
+        # nothing in the diffusion path reads them: the only consumer is
+        # train_module.py::update_camera_params, which is defined and never called,
+        # and the cam_rotation used by cast_smpl is derived from the orientation
+        # parameters, not from the batch. (The optimisation stage has its own
+        # loader, llib/data/single_optimization.py, and is unaffected.)
         cam_target = {}
-        if 'cam_rot' in item.keys():
-            if item['cam_rot'] is not None:
-                cam_target = {
-                    'cam_rot': np.array(item['cam_rot']),
-                    'cam_transl': np.array(item['cam_transl']),
-                    'fl': np.array(item['fl']),
-                    'ih': np.array(item['img_height']),
-                    'iw': np.array(item['img_width']),
-                }
 
 
         if 'contact_map' in item.keys():
@@ -445,6 +471,26 @@ class SingleDataset(Dataset):
             transl_param = item['transl'].squeeze(1)
         elif 'Hi4D' in item['imgpath']:
             transl_param = item[f'transl_{self.body_model_type}']
+        elif 'InterX' in item['imgpath']:
+            # Camera-frame ground truth (written by
+            # llib/data/preprocess/utils/process_interx_bev.py) is the default.
+            # It is the frame bev_smplx_* lives in, so it is the only frame in
+            # which the BEV conditioning actually determines the target -- the
+            # raw Inter-X world frame differs from it by a per-frame random
+            # camera rotation. Same idea as global_orient_cam (CHI3D) and
+            # global_orient_cam_smplx (Hi4D) above; load_unit_glob_and_transl
+            # switches back to the world frame, same flag name as those two.
+            interx_suffix = '' if self.dataset_cfg.load_unit_glob_and_transl else '_cam'
+            if interx_suffix and f'pgt_{self.body_model_type}_transl_cam' not in item:
+                raise KeyError(
+                    'InterX sample has no pgt_*_cam fields. Rerun '
+                    'llib/data/preprocess/utils/process_interx_bev.py to add the '
+                    'camera-frame ground truth (and delete the cached '
+                    '{split}_diffusion.pkl afterwards), or set '
+                    'datasets.interx.load_unit_glob_and_transl=True to train on the '
+                    'raw mocap world frame -- in which case BEV conditioning is '
+                    'meaningless and only the unconditional model makes sense.')
+            transl_param = item[f'pgt_{self.body_model_type}_transl{interx_suffix}']
         else:
             raise NotImplementedError
 
@@ -510,6 +556,21 @@ class SingleDataset(Dataset):
             if self.dataset_cfg.load_unit_glob_and_transl:
                 human_target['pgt_global_orient'] = item[f'global_orient_{self.body_model_type}'][idxs].astype(np.float32)
                 human_target['pgt_transl'] = item[f'transl_{self.body_model_type}'][idxs].astype(np.float32)
+
+        elif 'InterX' in item['imgpath']:
+            human_target = {
+                'contact_map': contact_map,
+                'pgt_global_orient': item[f'pgt_{self.body_model_type}_global_orient{interx_suffix}'][idxs],
+                'pgt_body_pose': item[f'pgt_{self.body_model_type}_body_pose'][idxs],
+                'pgt_transl': item[f'pgt_{self.body_model_type}_transl{interx_suffix}'][idxs],
+                'pgt_betas': item[f'pgt_{self.body_model_type}_betas'][idxs],
+                'pgt_scale': item[f'pgt_{self.body_model_type}_scale'][idxs],
+                'bev_global_orient': item[f'bev_{self.body_model_type}_global_orient'][idxs],
+                'bev_body_pose': item[f'bev_{self.body_model_type}_body_pose'][idxs],
+                'bev_transl': item[f'bev_{self.body_model_type}_transl'][idxs],
+                'bev_betas': item[f'bev_{self.body_model_type}_betas'][idxs],
+                'bev_scale': item[f'bev_{self.body_model_type}_scale'][idxs][:,None],
+            }
 
         else:
             raise NotImplementedError

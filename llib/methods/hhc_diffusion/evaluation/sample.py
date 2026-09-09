@@ -270,7 +270,7 @@ def create_output_folder(
 
 
 def sample_from_ground_truth_dataset(num_batches, cfg, diffusion_module, item_idx=None):
-    data, data_loader = setup_gt_dataset(cfg, drop_last=True)
+    data, data_loader = setup_gt_dataset(cfg, dataset_name=cfg.datasets.val_names[0], drop_last=True)
 
     pgt_batches, pgt_verts = [], []
     for bidx, in_batch in enumerate(data_loader):

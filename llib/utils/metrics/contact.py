@@ -187,8 +187,11 @@ class MaxIntersection(nn.Module):
                 out['max_v2_in_v1'].append(max_val)
                 out['mean_v2_in_v1'].append(mean_val)
                 #out['median_v2_in_v1'].append(median_val)
-            except:
-                import ipdb; ipdb.set_trace()
+            except Exception as e:
+                raise RuntimeError(
+                    f'MaxIntersection.forward_batch failed on batch item {bidx} '
+                    f'(v1 {tuple(v1.shape)}, v2 {tuple(v2.shape)}, lowres={lowres})'
+                ) from e
         return out
      
     def forward(self, v1, v2, lowres=None, in_loop=False):

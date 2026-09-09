@@ -123,8 +123,14 @@ class EvalModule(nn.Module):
                 # split gen_samples along num_samples dimension in two halves
                 # and compute the metric between the two halves
                 def prep_verts(verts):
-                    x = verts[:self.num_samples // 2]
-                    y = verts[self.num_samples // 2:]
+                    # Split on the tensor's own length, not cfg.num_samples. Those
+                    # two agree only when batch_size == evaluation.num_samples; set
+                    # a smaller batch (an overfit run, say) and the second half is
+                    # empty, which surfaces as an unrelated-looking
+                    # "cannot reshape tensor of 0 elements" from the line below.
+                    # The assert that would have caught this is commented out above.
+                    half = verts.size()[0] // 2
+                    x, y = verts[:half], verts[half:2 * half]
                     x = x.reshape(x.size()[0], -1, x.size()[-1])
                     y = y.reshape(y.size()[0], -1, y.size()[-1])
                     return x, y

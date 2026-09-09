@@ -1,0 +1,1 @@
+/home/yuhong/.claude/plans/smplx-2d-smplx-buddi-smplx-4090gpu-temporal-treasure.md

@@ -118,8 +118,11 @@ class CHI3D():
         for key in x.keys():
             try:
                 concatenated_dict[key] = np.stack((x[key], y[key]), axis=0)
-            except:
-                import ipdb; ipdb.set_trace()
+            except Exception as e:
+                raise ValueError(
+                    f'concatenate_dicts failed on key {key!r}: the two humans have '
+                    f'incompatible values ({np.shape(x[key])} vs {np.shape(y[key])})'
+                ) from e
         return concatenated_dict
     
     def load_smpl_data(self, smpl_fn, frame_ids=[85]):
@@ -382,6 +385,12 @@ class CHI3D():
                     'fl': focal_length_px,
                     'afov_horizontal': self.BEV_FOV,
                     'information_missing': False,
+                    # information_missing is True when ANY of the four detection
+                    # channels is absent, which is what the stage-1 optimisation
+                    # needs (it fits to 2D keypoints). Diffusion training only
+                    # consumes the BEV parameters, so it needs the narrower flag:
+                    # see the bev_missing assignment below.
+                    'bev_missing': False,
                     'is_contact_frame': False
                 }
                 
@@ -406,6 +415,17 @@ class CHI3D():
                     for x in ['openpose_human_idx', 'bev_human_idx', 'vitpose_human_idx', 'vitposeplus_human_idx']:
                         if np.any(human_data[x] == -1):
                             data_item['information_missing'] = True
+
+                    # Narrower flag for the diffusion dataloader, which uses the
+                    # BEV parameters as conditioning and never touches the 2D
+                    # keypoints. Reusing information_missing there would null the
+                    # guidance of samples whose BEV is perfectly fine and whose
+                    # only problem is a missed keypoint detection: measured on
+                    # s03, 64/504 frames set information_missing but only 35 of
+                    # those actually lack BEV (and those are dropped outright
+                    # below), so 29 usable samples -- 6% of CHI3D -- would train
+                    # as unconditional for no reason.
+                    data_item['bev_missing'] = bool(np.any(human_data['bev_human_idx'] == -1))
 
                     # Update the data_item with the human data
                     human_data = self.process_bev(human_data, (900, 900))

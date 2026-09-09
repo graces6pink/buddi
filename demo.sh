@@ -1,3 +1,5 @@
+export PYTHONPATH=~/workspace/buddi
+
 # This script runs ViTPose and BEV on your images and then starts the optimization with BUDDI.
 # If you have OpenPose installed, you can also run OpenPose on your images as well 
 # and set the datasets.demo.openpose_folder to the folder where the OpenPose keypoints are stored.

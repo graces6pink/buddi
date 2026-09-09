@@ -1,5 +1,6 @@
 import time
 import torch
+import numpy as np
 import os.path as osp
 from tqdm import tqdm 
 from loguru import logger as guru
@@ -19,6 +20,7 @@ class Trainer(nn.Module):
         logger,
         device,
         batch_size,
+        scheduler=None,
     ):
         super().__init__()
         """
@@ -38,11 +40,14 @@ class Trainer(nn.Module):
         # training
         self.train_module = train_module
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.logger = logger
 
         # current model and optimizers
         # logger uses these dicts to save and load checkpoints
         self.optimizers_dict = {'optimizer': self.optimizer}
+        if self.scheduler is not None:
+            self.optimizers_dict['scheduler'] = self.scheduler
 
         # training params
         self.endtime = time.time() + train_cfg.max_duration
@@ -58,6 +63,12 @@ class Trainer(nn.Module):
         self.batch_idx = 0
         self.steps = 0
         self.checkpoint = None
+
+        # Validation is run with this fixed RNG seed (state saved/restored around
+        # it, so training randomness is untouched). Without it every validation
+        # draws different diffusion noise, and the checkpoint metric moves for
+        # reasons that have nothing to do with the model getting better or worse.
+        self.val_seed = 42
 
         # Store histrogram data for tensorboard
         self.histograms = {}
@@ -181,7 +192,11 @@ class Trainer(nn.Module):
         # for each element in batch add zeros along axis 0 to match pad size
         for k, v in batch.items():
             if isinstance(v, torch.Tensor):
-                batch[k] = torch.cat([v, torch.zeros((padding, *v.shape[1:]), device=self.device)], dim=0)
+                # dtype=v.dtype: the padding has to match, otherwise torch.cat
+                # raises for any non-float entry (e.g. the bool
+                # 'information_missing' flag).
+                batch[k] = torch.cat([v, torch.zeros(
+                    (padding, *v.shape[1:]), dtype=v.dtype, device=self.device)], dim=0)
             elif isinstance(v, dict):
                 batch[k] = self.expand_batch(v, padding)
             elif isinstance(v, list):
@@ -193,13 +208,44 @@ class Trainer(nn.Module):
         return batch
 
 
+    def _push_deterministic_rng(self, seed):
+        """Seed torch/numpy for validation and hand back the previous state."""
+        states = (
+            torch.get_rng_state(),
+            np.random.get_state(),
+            torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+        )
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        return states
+
+    def _pop_deterministic_rng(self, states):
+        torch_state, np_state, cuda_states = states
+        torch.set_rng_state(torch_state)
+        np.random.set_state(np_state)
+        if cuda_states is not None:
+            torch.cuda.set_rng_state_all(cuda_states)
+
     @torch.no_grad()
     def validate(self, is_training=True):
-        """Validate all datasets."""
+        """Validate all datasets.
+
+        Every batch of the validation set contributes to the accumulated
+        metrics (this used to only ever look at batch 0, i.e. a fixed
+        batch_size slice of an unshuffled dataset, which made the checkpoint
+        metric both unrepresentative and noisy). The expensive parts -- the two
+        full diffusion sampling loops and the tensorboard renders -- still run
+        on the first batch only, so the added cost is one cheap denoising pass
+        per remaining batch. Cap it with evaluation.max_val_batches if needed.
+        """
 
         # set model to evaluation mode
         self.train_module.eval()
-        drop_last = True if is_training else False
+
+        max_val_batches = getattr(
+            self.train_module.evaluator.cfg, 'max_val_batches', -1)
 
         ckpt_metric = 0.0
         if self.train_module.val_ds is not None:
@@ -209,6 +255,7 @@ class Trainer(nn.Module):
 
                 # check if dataset is large enough for batch size
                 expand_batch = False
+                drop_last = True if is_training else False
                 if len(val_ds) < self.batch_size:
                     guru.warning(f'Validation dataset {val_ds_name} is smaller than batch size {self.batch_size}. Expanding batch.')
                     expand_batch = True
@@ -224,15 +271,35 @@ class Trainer(nn.Module):
                     drop_last=drop_last
                 )
 
-                # validate
-                for batch_idx, batch in enumerate(val_loader):
-                    
+                # Fixed noise across validation runs, so a change in the metric
+                # means a change in the model. State is restored below.
+                rng_states = self._push_deterministic_rng(self.val_seed)
+                try:
+                    num_seen = 0
+                    for batch_idx, batch in enumerate(val_loader):
 
-                    if batch_idx == 0:
+                        if max_val_batches > 0 and batch_idx >= max_val_batches:
+                            break
+
                         batch = self.dict_to_device(batch)
                         batch = self.expand_batch(batch, self.batch_size - len(val_ds)) if expand_batch else batch
-                        self.train_module.single_validation_step(batch)
-                
+
+                        # several downstream ops index with cfg.batch_size, so a
+                        # partial trailing batch would blow up rather than just
+                        # be wrong. drop_last normally prevents this.
+                        if batch['pgt_transl'].shape[0] != self.batch_size:
+                            guru.warning(
+                                f'Skipping partial validation batch {batch_idx} '
+                                f'({batch["pgt_transl"].shape[0]} < {self.batch_size}).')
+                            continue
+
+                        self.train_module.single_validation_step(
+                            batch, run_sampling=(batch_idx == 0))
+                        num_seen += batch['pgt_transl'].shape[0]
+                finally:
+                    self._pop_deterministic_rng(rng_states)
+
+                guru.info(f'Validated {val_ds_name} on {num_seen}/{len(val_ds)} samples.')
                 self.train_module.evaluator.final_accumulate_step()
 
                 if is_training:
@@ -368,6 +435,9 @@ class Trainer(nn.Module):
                 # save validation images
                 # if val_output is not None:
                     # self.add_summary_images(val_output['images'], split='val', max_images=min(12, self.batch_size))
+
+                if self.scheduler is not None and self.train_module.val_ds is not None:
+                    self.scheduler.step(ckpt_metric)
 
                 # save checkpoint
                 self.logger.save_checkpoint(self.train_module, self.optimizers_dict,
