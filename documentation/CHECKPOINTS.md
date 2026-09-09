@@ -14,7 +14,7 @@
 | `interx_uncond` | Inter-X，无条件 | 1799 | **12.26** | `interx_uncond.tar.gz` |
 | `interx_uncond_clean` | Inter-X（清洗过），无条件 | 1899 | **16.09** | `interx_uncond_clean.tar.gz` |
 | `interx_cond_bev_camfix` | Inter-X，BEV 条件（相机修正后） | 3609 | **26.16** | `interx_cond_bev_camfix.tar.gz` |
-| `interx6_chi3d_cond_bev` | Inter-X 六视角 + CHI3D，BEV 条件 | 686 | **31.95** | `interx6_chi3d_cond_bev.tar.gz` |
+| `interx6_chi3d_cond_bev` | Inter-X 六视角 + CHI3D，BEV 条件 | 686 | **31.87** | `interx6_chi3d_cond_bev.tar.gz` |
 
 > 不同 run 的 loss 数值**不能横向比较**——训练数据和损失项配置都不同。同一列里
 > 只有跟自己的历史比才有意义（各 run 的起始 loss 分别是 90.47 / 62.99 / 187.48 / 298.72）。
