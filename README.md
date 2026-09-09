@@ -28,6 +28,8 @@ https://github.com/muelea/buddi/assets/13314980/b0de0db7-e24f-4c74-8f4d-5029b7d3
 >   sampling, running on your own images, training, and inspecting Inter-X frames.
 > - **[Trained checkpoints](./documentation/CHECKPOINTS.md)** — four models trained on
 >   Inter-X, published via GitHub Releases rather than tracked in the repo.
+> - **[Results](./results/)** — quantitative metrics from the CHI3D and FlickrCI3D
+>   evaluations, with the config and checkpoint behind each number.
 >
 > **No datasets or model weights are included in this repository.** CHI3D, FlickrCI3D,
 > Hi4D and Inter-X each require individual registration and prohibit redistribution, as
